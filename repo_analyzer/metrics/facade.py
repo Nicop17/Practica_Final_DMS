@@ -7,6 +7,8 @@ from .imports import NumImportsStrategy
 from .functions import FunctionsStrategy
 from .duplication import DuplicationStrategy
 from .maintainability import MaintainabilityStrategy
+from .todos import TodosStrategy
+from .classes import ClassesStrategy
 
 def list_py_files(root: str | Path) -> List[Path]:
     """Lista archivos .py excluyendo directorios ignorados."""
@@ -32,6 +34,8 @@ class MetricsFacade:
             "functions": FunctionsStrategy(), 
             "duplication": DuplicationStrategy(), 
             "maintainability": MaintainabilityStrategy(), 
+            "todos": TodosStrategy(),
+            "classes": ClassesStrategy(),
         }
 
     def compute_all(self, repo_path: Path, options: dict) -> Dict[str, Any]:
@@ -49,7 +53,9 @@ class MetricsFacade:
                 "total_lines": 0,
                 "avg_cc": 0.0, 
                 "maintainability_index": 0.0, 
-                "duplication": 0.0
+                "duplication": 0.0,
+                "todos": self.strategies["todos"].compute(source_code),
+                "classes": self.strategies["classes"].compute(source_code)
             },
             "files": [] 
         }
