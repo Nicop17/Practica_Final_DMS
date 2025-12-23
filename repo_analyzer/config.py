@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Optional
 
 class ConfigSingleton:
-    _instance: Optional["ConfigSingleton"] = None  # <--- CORRECCIÓN CRÍTICA: Inicializar a None
+    _instance: Optional["ConfigSingleton"] = None  # Inicializar a None
 
     def __init__(self,
                  repo_cache_dir: Path | str,
