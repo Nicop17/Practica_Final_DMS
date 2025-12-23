@@ -1,132 +1,150 @@
-import pytest
-from unittest.mock import MagicMock, patch
+from flask import render_template
+from typing import Dict, Any, Tuple, Optional
 import sys
 import os
 
+# TRUCO DE IMPORTACIÓN: 
+# Como mediator.py está dentro de ui/, necesitamos que Python vea la raíz para importar config.py
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+# --- AQUÍ ESTABA EL ERROR: FALTABA ESTE IMPORT ---
+from config import ConfigSingleton
+
 # ==============================================================================
-# CONFIGURACIÓN DE ENTORNO DE PRUEBAS
+# COMPONENTES DE INTERFAZ (UI COMPONENTS)
 # ==============================================================================
 
-# 1. Definir la raíz del proyecto
-# Estamos en repo_analyzer/tests/test_mediator.py
-# Queremos llegar a repo_analyzer/
-current_dir = os.path.dirname(os.path.abspath(__file__))
-project_root = os.path.dirname(current_dir)
+class InputComponent:
+    """Responsable de validar y extraer la entrada principal."""
+    def parse(self, form: Dict[str, Any]) -> Tuple[Optional[str], Optional[str]]:
+        repo_url = form.get("repo_url", "").strip()
+        if not repo_url:
+            return None, "Por favor, introduzca una URL válida del repositorio."
+        return repo_url, None
 
-# 2. Inyectar la raíz en el path de Python (Prioridad 0)
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
-
-# 3. Mockear Flask GLOBALMENTE antes de cualquier import
-# Esto evita 'ModuleNotFoundError: No module named flask'
-mock_flask = MagicMock()
-sys.modules["flask"] = mock_flask
-
-# 4. Importar el módulo bajo prueba
-# Gracias al paso 1, Python encuentra 'ui' directamente
-try:
-    from ui.mediator import UIMediator
-except ImportError as e:
-    pytest.fail(f"Error CRÍTICO de importación. Python no encuentra el módulo 'ui'. Detalles: {e}")
+    def context(self, error: Optional[str] = None) -> Dict[str, Any]:
+        return {"input_error": error}
 
 
-class TestUIMediator:
-    """
-    Suite de pruebas unitarias para el patrón Mediador.
-    Aísla la lógica de coordinación de la interfaz web y la base de datos.
-    """
-
-    @pytest.fixture
-    def mock_subject(self):
-        """Mock del Subject (Lógica de Negocio / Proxy)."""
-        subject = MagicMock()
-        # Configuramos comportamientos por defecto
-        subject.list_analyses.return_value = []
-        subject.peticion.return_value = {}
-        return subject
-
-    @pytest.fixture
-    def mediator(self, mock_subject):
-        """Instancia del mediador inyectando el subject mockeado."""
-        return UIMediator(mock_subject)
-
-    # Mockeamos las clases que están DENTRO de ui.mediator
-    @patch("ui.mediator.render_template")
-    @patch("ui.mediator.HistoryComponent")
-    @patch("ui.mediator.OutputComponent")
-    @patch("ui.mediator.OptionsComponent")
-    @patch("ui.mediator.InputComponent")
-    def test_show_index_initialization(self, MockInput, MockOpts, MockOut, MockHist, mock_render, mediator, mock_subject):
-        """
-        [GET /] Carga Inicial.
-        Debe coordinar la obtención del historial y renderizar la vista base.
-        """
-        # Preparación (Arrange)
-        MockHist.return_value.get_entries.return_value = {"history": ["item_test"]}
-
-        # Ejecución (Act)
-        mediator.show_index()
-
-        # Aserción (Assert)
-        # 1. Verificamos que pidió el historial al negocio
-        MockHist.return_value.get_entries.assert_called_once_with(mock_subject)
-        # 2. Verificamos que renderizó la plantilla correcta con los datos
-        assert mock_render.call_args[0][0] == "index.html"
-        assert mock_render.call_args[1]["history"] == ["item_test"]
-
-    @patch("ui.mediator.render_template")
-    @patch("ui.mediator.HistoryComponent")
-    @patch("ui.mediator.OutputComponent")
-    @patch("ui.mediator.OptionsComponent")
-    @patch("ui.mediator.InputComponent")
-    def test_handle_analyze_validation_failure(self, MockInput, MockOpts, MockOut, MockHist, mock_render, mediator, mock_subject):
-        """
-        [POST /analyze] Fallo de Validación.
-        Si el InputComponent detecta error, el Subject NO debe ejecutarse.
-        """
-        # Preparación: Input devuelve error
-        MockInput.return_value.parse.return_value = (None, "URL Inválida")
-        MockInput.return_value.context.return_value = {"input_error": "URL Inválida"}
+class OptionsComponent:
+    """Responsable de procesar las opciones de configuración."""
+    def parse(self, form: Dict[str, Any]) -> Dict[str, Any]:
+        force = form.get("force") == "on"
         
-        form_data = {} # Formulario vacío
+        # --- USO DEL SINGLETON ---
+        # Obtenemos el valor por defecto de la configuración global
+        try:
+            default_window = ConfigSingleton.get_instance().duplication_window
+        except Exception:
+            default_window = 4 # Fallback defensivo
 
-        # Ejecución
-        mediator.handle_analyze(form_data)
+        try:
+            val = form.get("dup_window")
+            if val is None or val == "":
+                dup_window = default_window
+            else:
+                dup_window = int(val)
+        except ValueError:
+            dup_window = default_window
+            
+        return {"force": force, "dup_window": dup_window}
 
-        # Aserción Crítica: El negocio está protegido
-        mock_subject.peticion.assert_not_called()
+    def context(self, parsed_options: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        # Usamos el singleton para mostrar el default en la UI
+        try:
+            default_window = ConfigSingleton.get_instance().duplication_window
+        except Exception:
+            default_window = 4
+
+        defaults = {"force": False, "dup_window": default_window}
+        return {"options": parsed_options or defaults}
+
+
+class OutputComponent:
+    """Responsable de formatear los resultados."""
+    def prepare(self, result: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+        if not result:
+            return {"show_output": False}
+        return {
+            "show_output": True,
+            "repo": result.get("repo", ""),
+            "num_files": result.get("num_files", 0),
+            "total_lines": result.get("total_lines", 0),
+            "avg_cc": result.get("avg_cc", 0.0),
+            "maintainability": result.get("maintainability_index", 0.0),
+            "duplication": result.get("duplication", 0.0),
+            "from_cache": result.get("_from_cache", False),
+            "forced": result.get("forced", False),
+            "analyzed_at": result.get("analyzed_at", ""),
+        }
+
+
+class HistoryComponent:
+    """Responsable de recuperar el historial."""
+    def get_entries(self, subject) -> Dict[str, Any]:
+        try:
+            entries = subject.list_analyses()
+        except Exception:
+            entries = []
+        return {"history": entries}
+
+
+# ==============================================================================
+# MEDIADOR (UI MEDIATOR)
+# ==============================================================================
+
+class UIMediator:
+    def __init__(self, subject):
+        self.subject = subject
+
+    def show_index(self):
+        input_c = InputComponent()
+        options_c = OptionsComponent()
+        output_c = OutputComponent()
+        history_c = HistoryComponent()
+
+        ctx = {}
+        ctx.update(input_c.context())
+        ctx.update(options_c.context())
+        ctx.update(output_c.prepare(None))
+        ctx.update(history_c.get_entries(self.subject))
+        return render_template("index.html", **ctx)
+
+    def handle_analyze(self, form: Dict[str, Any]):
+        input_c = InputComponent()
+        options_c = OptionsComponent()
+        output_c = OutputComponent()
+        history_c = HistoryComponent()
+
+        repo_url, error = input_c.parse(form)
         
-        # Aserción UI: Se muestra el error
-        assert mock_render.call_args[1]["input_error"] == "URL Inválida"
+        if error:
+            ctx = {}
+            ctx.update(input_c.context(error))
+            ctx.update(options_c.context()) 
+            ctx.update(output_c.prepare(None))
+            ctx.update(history_c.get_entries(self.subject))
+            return render_template("index.html", **ctx)
 
-    @patch("ui.mediator.render_template")
-    @patch("ui.mediator.HistoryComponent")
-    @patch("ui.mediator.OutputComponent")
-    @patch("ui.mediator.OptionsComponent")
-    @patch("ui.mediator.InputComponent")
-    def test_handle_analyze_success_flow(self, MockInput, MockOpts, MockOut, MockHist, mock_render, mediator, mock_subject):
-        """
-        [POST /analyze] Flujo Exitoso.
-        Input OK -> Options OK -> Subject OK -> Render OK.
-        """
-        # Preparación
-        url = "http://git.com/repo"
-        MockInput.return_value.parse.return_value = (url, None)
-        MockOpts.return_value.parse.return_value = {"force": True}
-        
-        # Simulamos respuesta del negocio
-        mock_subject.peticion.return_value = {"loc": 500}
-        MockOut.return_value.prepare.return_value = {"metrics": "ok"}
-        
-        form_data = {"repo_url": url}
+        opts = options_c.parse(form)
 
-        # Ejecución
-        mediator.handle_analyze(form_data)
+        try:
+            result = self.subject.peticion(repo_url, force=opts.get("force", False))
+        except Exception as e:
+            error_msg = f"Error durante el análisis: {str(e)}"
+            ctx = {}
+            ctx.update(input_c.context(error_msg))
+            ctx.update(options_c.context(opts))
+            ctx.update(output_c.prepare(None))
+            ctx.update(history_c.get_entries(self.subject))
+            return render_template("index.html", **ctx)
 
-        # Aserciones
-        # 1. Los datos fluyeron correctamente al subject
-        mock_subject.peticion.assert_called_once_with(url, force=True)
-        # 2. Se actualizó el historial tras el análisis
-        assert MockHist.return_value.get_entries.called
-        # 3. El renderizado final incluye los resultados
-        assert mock_render.call_args[1]["metrics"] == "ok"
+        out_ctx = output_c.prepare(result)
+        hist_ctx = history_c.get_entries(self.subject)
+
+        ctx = {}
+        ctx.update(input_c.context())
+        ctx.update(options_c.context(opts))
+        ctx.update(out_ctx)
+        ctx.update(hist_ctx)
+        return render_template("index.html", **ctx)
