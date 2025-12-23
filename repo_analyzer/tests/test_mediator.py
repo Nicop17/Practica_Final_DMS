@@ -8,8 +8,7 @@ import os
 # ==============================================================================
 
 # 1. Definir la raíz del proyecto
-# Estamos en repo_analyzer/tests/test_mediator.py
-# Queremos llegar a repo_analyzer/
+# Estamos en repo_analyzer/tests/test_mediator.py -> Queremos llegar a repo_analyzer/
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(current_dir)
 
@@ -18,12 +17,10 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 # 3. Mockear Flask GLOBALMENTE antes de cualquier import
-# Esto evita 'ModuleNotFoundError: No module named flask'
 mock_flask = MagicMock()
 sys.modules["flask"] = mock_flask
 
 # 4. Importar el módulo bajo prueba
-# Gracias al paso 1, Python encuentra 'ui' directamente
 try:
     from ui.mediator import UIMediator
 except ImportError as e:
@@ -50,7 +47,10 @@ class TestUIMediator:
         """Instancia del mediador inyectando el subject mockeado."""
         return UIMediator(mock_subject)
 
-    # Mockeamos las clases que están DENTRO de ui.mediator
+    # ==========================================================================
+    # TESTS
+    # ==========================================================================
+
     @patch("ui.mediator.render_template")
     @patch("ui.mediator.HistoryComponent")
     @patch("ui.mediator.OutputComponent")
@@ -68,9 +68,7 @@ class TestUIMediator:
         mediator.show_index()
 
         # Aserción (Assert)
-        # 1. Verificamos que pidió el historial al negocio
         MockHist.return_value.get_entries.assert_called_once_with(mock_subject)
-        # 2. Verificamos que renderizó la plantilla correcta con los datos
         assert mock_render.call_args[0][0] == "index.html"
         assert mock_render.call_args[1]["history"] == ["item_test"]
 
@@ -99,12 +97,14 @@ class TestUIMediator:
         # Aserción UI: Se muestra el error
         assert mock_render.call_args[1]["input_error"] == "URL Inválida"
 
+    # AÑADIMOS EL PARCHE DE CONFIGSINGLETON AQUÍ
+    @patch("ui.mediator.ConfigSingleton") 
     @patch("ui.mediator.render_template")
     @patch("ui.mediator.HistoryComponent")
     @patch("ui.mediator.OutputComponent")
     @patch("ui.mediator.OptionsComponent")
     @patch("ui.mediator.InputComponent")
-    def test_handle_analyze_success_flow(self, MockInput, MockOpts, MockOut, MockHist, mock_render, mediator, mock_subject):
+    def test_handle_analyze_success_flow(self, MockInput, MockOpts, MockOut, MockHist, mock_render, MockConfig, mediator, mock_subject):
         """
         [POST /analyze] Flujo Exitoso.
         Input OK -> Options OK -> Subject OK -> Render OK.
@@ -114,6 +114,9 @@ class TestUIMediator:
         MockInput.return_value.parse.return_value = (url, None)
         MockOpts.return_value.parse.return_value = {"force": True}
         
+        # Simulamos valores del ConfigSingleton (aunque OptionsComponent esté mockeado, es buena práctica)
+        MockConfig.get_instance.return_value.duplication_window = 10
+
         # Simulamos respuesta del negocio
         mock_subject.peticion.return_value = {"loc": 500}
         MockOut.return_value.prepare.return_value = {"metrics": "ok"}
