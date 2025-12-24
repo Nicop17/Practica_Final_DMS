@@ -4,7 +4,7 @@ import os
 import math
 from pathlib import Path
 
-# Configuración del path
+# Configuración del entorno de pruebas
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 try:
@@ -14,8 +14,11 @@ except ImportError:
 
 class TestMaintainabilityFix:
     """
-    Suite de Pruebas de Desarrollo (TDD).
-    Objetivo: Estos tests fallarán hasta que el código sea robusto.
+    Suite de Pruebas de Calidad para MaintainabilityStrategy.
+    
+    Verifica la robustez del cálculo del Índice de Mantenibilidad ante fallos de 
+    sintaxis, codificaciones de archivos legacy y la correcta detección de 
+    complejidad en scopes globales y sintaxis moderna.
     """
 
     @pytest.fixture
@@ -33,27 +36,28 @@ class TestMaintainabilityFix:
             return p
         return _create
 
-    # 1. PRUEBA DE ESTABILIDAD (Debe manejar errores de sintaxis sin explotar)
+    # 1. PRUEBA DE TOLERANCIA A FALLOS DE SINTAXIS
     def test_should_handle_syntax_errors_gracefully(self, strategy, create_file):
         """
-        FALLA ACTUALMENTE: Lanza SyntaxError.
-        CORRECCIÓN REQUERIDA: Capturar SyntaxError y devolver un valor por defecto (ej. 0.0)
-        o lanzar una excepción de dominio controlada (ej. AnalysisError).
+        Valida que el analizador no se detenga ante archivos con errores de sintaxis.
+        En lugar de lanzar un SyntaxError que rompa la ejecución, debe capturar el fallo
+        y devolver un valor por defecto (0.0), garantizando la continuidad del análisis.
         """
         bad_file = create_file("bad.py", "def funcion_rota(: print('error')")
         
         try:
             result = strategy.compute(bad_file)
-            # Si llegamos aquí, debe ser un valor seguro, no un crash
+            # Verificamos que se devuelva un valor numérico seguro en lugar de explotar
             assert isinstance(result, (int, float))
         except SyntaxError:
-            pytest.fail("El analizador explotó con un SyntaxError. Debe capturarse y manejarse.")
+            pytest.fail("ERROR: El analizador no capturó el SyntaxError. La ejecución se rompió.")
 
-    # 2. PRUEBA DE ENCODING (Debe manejar archivos legacy)
+    # 2. PRUEBA DE COMPATIBILIDAD DE CODIFICACIÓN (Encoding)
     def test_should_handle_latin1_encoding(self, strategy, create_file):
         """
-        FALLA ACTUALMENTE: Lanza UnicodeDecodeError.
-        CORRECCIÓN REQUERIDA: Intentar leer con 'utf-8', si falla probar 'latin-1' o ignorar errores.
+        Verifica la capacidad de procesar archivos con codificaciones distintas a UTF-8.
+        Asegura que archivos legacy (codificados en Latin-1/ISO-8859-1) con caracteres
+        especiales no provoquen un crash por UnicodeDecodeError.
         """
         # Archivo con tildes en ISO-8859-1 (Latin-1)
         content_bytes = b"# C\xf3digo viejo" 
@@ -63,19 +67,19 @@ class TestMaintainabilityFix:
             result = strategy.compute(legacy_file)
             assert isinstance(result, float)
         except UnicodeDecodeError:
-            pytest.fail("El analizador no soporta archivos no UTF-8 (Crash por UnicodeDecodeError).")
+            pytest.fail("ERROR: El analizador falló al leer un archivo no UTF-8 (UnicodeDecodeError).")
 
-    # 3. PRUEBA DE LÓGICA (Debe ver código fuera de funciones)
+    # 3. PRUEBA DE COBERTURA DE SCOPE GLOBAL
     def test_should_detect_global_scope_complexity(self, strategy, create_file):
         """
-        FALLA ACTUALMENTE: Detecta LOC=0/CC=1 en scripts planos.
-        CORRECCIÓN REQUERIDA: El visitor del AST debe recorrer el módulo, no solo FunctionDef.
+        Valida que el cálculo de mantenibilidad incluya el código fuera de funciones.
+        Asegura que el análisis del AST recorra todo el módulo, detectando la 
+        complejidad ciclomática y líneas de código en scripts planos o variables globales.
         """
-        # Script espagueti con mucha complejidad pero sin funciones
+        # Script con lógica compleja directamente en el scope global
         complex_script = """
 import random
 x = 0
-# Un bucle en el scope global
 for i in range(100):
     if i % 2 == 0:
         x += 1
@@ -86,16 +90,15 @@ for i in range(100):
         
         mi = strategy.compute(script_file)
         
-        # El índice de mantenibilidad debería ser bajo (< 100) porque el código es complejo.
-        # Actualmente devuelve 100 (Perfecto) porque ignora el código.
-        # Exigimos que detecte algo de complejidad.
-        assert mi < 99.0, f"El MI es sospechosamente perfecto ({mi}). ¿Está ignorando el código global?"
+        # Un MI inferior a 99 indica que se ha detectado la complejidad del bucle e ifs
+        assert mi < 99.0, f"Aviso: El MI es {mi}. ¿Se está ignorando la complejidad global?"
 
-    # 4. PRUEBA DE OBSOLESCENCIA (Soporte Python 3.10+)
+    # 4. PRUEBA DE SOPORTE PARA PYTHON MODERNO (Match/Case)
     def test_should_support_match_case(self, strategy, create_file):
         """
-        FALLA ACTUALMENTE: match/case cuenta como complejidad 0.
-        CORRECCIÓN REQUERIDA: Añadir ast.Match a la lista de nodos complejos.
+        Verifica que el cálculo de complejidad incluya las nuevas sentencias de Python 3.10+.
+        Asegura que los nodos 'match' y 'case' se contabilicen como puntos de decisión,
+        afectando correctamente al Índice de Mantenibilidad final.
         """
         modern_code = """
 def router(status):
@@ -107,9 +110,7 @@ def router(status):
 """
         file_path = create_file("modern.py", modern_code)
         
-        # Calculamos MI. Con 4 ramas, la complejidad debería bajar el MI.
-        # Si ignora el match, el MI será alto.
         mi = strategy.compute(file_path)
         
-        # Un MI de 100 significa que no vio complejidad.
-        assert mi < 85.0, "El sistema ignora la complejidad de las sentencias match/case."
+        # La presencia de 4 ramas 'case' debe reducir el índice de mantenibilidad
+        assert mi < 85.0, "ERROR: El sistema no detectó la complejidad de la sentencia match/case."

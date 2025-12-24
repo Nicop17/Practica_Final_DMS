@@ -35,8 +35,11 @@ def compute_maintainability_index(filepath):
     Aplica la formula
     """
 
-    source = Path(filepath).read_text(encoding="utf-8")
-    tree = ast.parse(source)
+    source = Path(filepath).read_text(encoding="utf-8", errors='ignore')
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return 0.0 
 
     # 1. LOC y CC
     loc, cc_total = 0, 0

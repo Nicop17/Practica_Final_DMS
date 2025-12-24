@@ -13,8 +13,10 @@ def num_params(fn_node: ast.FunctionDef, count_first: bool = True) -> int:
     Cuenta parámetros formales declarados en la función.
     """
     n_params = len(fn_node.args.args)
-    if not count_first and n_params > 0:
-        n_params -= 1  # No contar 'self' en métodos (asumiendo que es el primer argumento)
+    args_names = [a.arg for a in fn_node.args.args]
+    if len(args_names) > 0 and args_names[0] in ['self', 'cls']:
+        n_params -= 1 # Descuenta el parámetro implícito
+
     return n_params
 
 def cyclomatic_per_function(fn_node: ast.FunctionDef) -> int:

@@ -2,84 +2,95 @@ import pytest
 import sys
 import os
 
-# --- PREPARACIÓN DEL TERRENO (BOILERPLATE) ---
-# Truco de QA Experto: Añadimos la raíz al path para que Python encuentre los módulos
-# sin importar desde dónde lancemos el test.
+# --- PREPARACIÓN DEL ENTORNO ---
+# Aseguramos que la raíz del proyecto esté en el path para la correcta
+# localización de los módulos de métricas.
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 try:
     from metrics.lines import LinesStrategy
 except ImportError:
-    # Si falla aquí, es culpa de la estructura del dev, no nuestra.
-    pytest.fail("CRÍTICO: No se puede importar 'metrics.lines'. ¿Falta un __init__.py en la carpeta metrics?")
+    pytest.fail("CRÍTICO: No se puede importar 'metrics.lines'. Verifique la estructura de paquetes.")
 
-# --- INICIO DE LA BATERÍA DE PRUEBAS ---
+# --- BATERÍA DE PRUEBAS DE CALIDAD ---
 
 class TestLinesStrategyAudit:
+    """
+    Suite de validación para LinesStrategy.
+    
+    Garantiza que el conteo de líneas de código sea preciso, eficiente y 
+    seguro ante entradas inesperadas o volúmenes masivos de datos.
+    """
 
     @pytest.fixture
     def strategy(self):
         return LinesStrategy()
 
-    # 1. PRUEBA DE HIGIENE BÁSICA (Debe pasar sí o sí)
+    # 1. VALIDACIÓN DE FUNCIONAMIENTO BÁSICO
     def test_basic_compliance(self, strategy):
-        """Verifica si la clase cumple su función mínima vital."""
+        """
+        Verifica que la estrategia realice un conteo exacto en casos estándar.
+        Garantiza que una línea de código simple sea contabilizada correctamente.
+        """
         assert strategy.compute("print('hello')") == 1
 
-    # 2. PRUEBA DE ROBUSTEZ ANTE NULOS (The Null Pointer Crash)
+    # 2. VALIDACIÓN DE SEGURIDAD ANTE NULOS
     def test_fail_gracefully_on_none(self, strategy):
         """
-        ATACAMOS: Pasamos None.
-        ESPERAMOS: TypeError o ValueError (Manejo correcto).
-        REALIDAD (BUG): AttributeError (Manejo sucio).
+        Verifica el manejo de excepciones ante entradas nulas (None).
+        Asegura que el sistema realice una validación de tipo previa y lance
+        un TypeError descriptivo, evitando fallos de atributo internos.
         """
-        # Nota para el reporte: Si este test pasa con AttributeError, márcalo como FAIL manual
-        # porque un AttributeError no es una validación aceptable en Enterprise.
         with pytest.raises((TypeError, ValueError), match="Debe ser string"):
             strategy.compute(None)
 
-    # 3. PRUEBA DE TIPADO FUERTE
+    # 3. VALIDACIÓN DE TIPADO (Type Guards)
     @pytest.mark.parametrize("garbage_input", [
-        100,                # int
-        ["linea1"],         # list
+        100,                 # int
+        ["linea1"],          # list
         b"archivo binario", # bytes
         {"k": "v"}          # dict
     ])
     def test_input_type_validation(self, strategy, garbage_input):
         """
-        ATACAMOS: Tipos de datos incorrectos.
-        OBJETIVO: Demostrar que el método no tiene 'Type Guards'.
+        Valida la integridad del sistema ante tipos de datos no soportados.
+        Confirma la existencia de 'Type Guards' que protegen la lógica de negocio
+        frente a entradas que no sean cadenas de texto.
         """
         with pytest.raises(TypeError):
             strategy.compute(garbage_input)
 
-    # 4. PRUEBA DE LÓGICA DE NEGOCIO (Ambigüedad)
+    # 4. VALIDACIÓN DE CASOS LÍMITE (Lógica de Negocio)
     @pytest.mark.parametrize("content, expected_lines", [
         ("", 0),             # Archivo vacío
-        ("\n", 0),           # Archivo con solo un enter (splitlines suele dar [], count=0)
-        ("   ", 1),          # Espacios (¿Es código? La herramienta dice sí)
-        ("# solo comentario", 1) 
+        ("\n", 0),           # Salto de línea solitario (no se considera línea de código)
+        ("   ", 0),          # Líneas compuestas solo por espacios (no se consideran código)
+        ("# solo comentario", 1) # Líneas de comentario (se consideran líneas físicas)
     ])
     def test_business_logic_edge_cases(self, strategy, content, expected_lines):
-        """Busca inconsistencias en qué se considera una 'línea'."""
+        """
+        Evalúa la consistencia de la métrica en casos de borde.
+        Define qué elementos se consideran 'líneas' para el reporte final, 
+        asegurando criterios uniformes en el análisis.
+        """
         assert strategy.compute(content) == expected_lines
 
-    # 5. EL MARTILLO: TEST DE ESTRÉS DE MEMORIA (Stress Test)
+    # 5. VALIDACIÓN DE EFICIENCIA Y ESCALABILIDAD
     @pytest.mark.slow
     def test_memory_stress_large_input(self, strategy):
         """
-        ATACAMOS: Generamos un string sintético masivo.
-        OBJETIVO: Ver si splitlines() duplica la memoria y causa un MemoryError o ralentización extrema.
-        ESCENARIO: Un archivo de log de 50MB que alguien intenta analizar por error.
+        Prueba de rendimiento ante volúmenes masivos de datos.
+        Asegura que el procesamiento de archivos de gran tamaño (ej. logs de 1M de líneas)
+        se realice de forma estable, sin provocar desbordamientos de memoria 
+        o degradación crítica del rendimiento.
         """
-        # Generamos 1 millón de líneas. Esto creará un string pesado.
-        # Al hacer splitlines, Python crea una lista con 1 millón de objetos string.
+        # Generamos un entorno sintético de 1 millón de líneas.
         massive_input = "a\n" * 1_000_000 
         
         try:
             result = strategy.compute(massive_input)
             assert result == 1_000_000
         except MemoryError:
-            pytest.fail("CRÍTICO: La estrategia no es eficiente en memoria (MemoryError). Usar generadores.")
+            pytest.fail("ERROR DE ESCALABILIDAD: El sistema no gestionó eficientemente la memoria.")
         except Exception as e:
-            pytest.fail(f"CRÍTICO: El sistema colapsó con input grande: {e}")
+            pytest.fail(f"FALLO DE SISTEMA: El análisis de gran volumen colapsó: {e}")

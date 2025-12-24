@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import Dict, Any, List, Tuple, Generator
 from collections import defaultdict
 import hashlib
+import re
 from .base import MetricStrategy
 
 def normalize_to_lines(source, remove_comments=True, remove_def_class_header=True) -> List[str]:
@@ -12,15 +13,19 @@ def normalize_to_lines(source, remove_comments=True, remove_def_class_header=Tru
     """
     lines = []
     for line in source.splitlines():
-        stripped = line.strip()
-        if not stripped: continue
-        if remove_comments and stripped.startswith("#"): continue
-        if remove_def_class_header and (stripped.startswith("def ") or stripped.startswith("class ")): continue
+        clean_line = line
+        if remove_comments:
+            # Heurística simple: si hay un '#' fuera de comillas, es comentario
+            if '#' in clean_line and '"' not in clean_line and "'" not in clean_line:
+                clean_line = clean_line.split('#')[0]
         
-        if remove_comments and "#" in stripped:
-            stripped = stripped.split("#", 1)[0].strip()
-            
-        lines.append(" ".join(stripped.split()))
+        clean_line = clean_line.strip()
+        if remove_def_class_header:
+            # Soporte para 'async def'
+            clean_line = re.sub(r'^(async\s+)?(def|class)\s+.*', '', clean_line)        
+        
+        if clean_line: 
+            lines.append(clean_line)
     return lines
 
 def create_shingles(lines, window) -> Generator[Tuple[int, List[str]], Any, Any]:
@@ -38,33 +43,31 @@ def compute_duplication(path, window):
     Genera conjuntos de items contiguos de tamaño window, usando create_shingles.
     Para cada shingle, obtiene su hash y lo almacena
     """
-    source = Path(path).read_text(encoding="utf-8")
-    norm_lines = normalize_to_lines(source)
-    shingles = create_shingles(norm_lines, window)
-
-    seen = defaultdict(int)
-    total = 0
-
-    for _, shingle in shingles:
-        total += 1
-        text = "\n".join(shingle)
-        h = hashlib.sha1(text.encode("utf-8")).hexdigest()
-        seen[h] += 1
-
-    if total == 0:
+    p = Path(path)
+    # Manejo de archivos inexistentes
+    if not p.exists():
+        raise FileNotFoundError(f"Archivo no encontrado: {path}")
+        
+    try:
+        # errors='ignore' para archivos binarios o Latin-1
+        source = p.read_text(encoding='utf-8', errors='ignore')
+        from collections import Counter
+        lines = normalize_to_lines(source)
+        if len(lines) < window: return 0.0
+        shingle_hashes = [hashlib.md5("".join(s).encode()).hexdigest() for _, s in create_shingles(lines, window)]
+        counts = Counter(shingle_hashes)
+        duplicated = sum(freq for freq in counts.values() if freq > 1)
+        
+        return duplicated / len(shingle_hashes)
+                                
+    except Exception:
         return 0.0
-
-    duplicates = sum(freq for freq in seen.values() if freq > 1)
-    
-    # La duplicación es la cuenta de cuántas ocurrencias son duplicadas / el total de shingles
-    return duplicates / total
-
 
 class DuplicationStrategy(MetricStrategy):
     """
     Calcula el ratio de duplicación por fichero usando la heurística de shingles.
     """
-    def compute(self, filepath: Path, window: int) -> float:
+    def compute(self, filepath: Path, window: int=4) -> float:
         """
         Recibe la ruta del archivo y la ventana (window) para calcular el ratio de duplicación.
         """
