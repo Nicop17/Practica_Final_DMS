@@ -65,6 +65,9 @@ class OutputComponent:
     def prepare(self, result: Optional[Dict[str, Any]]) -> Dict[str, Any]:
         if not result:
             return {"show_output": False}
+        
+        summary = result.get("summary", {})  # Buscamos dentro de 'summary' que es lo que devuelve nuestra Fachada 
+
         return {
             "show_output": True,
             "repo": result.get("repo", ""),
@@ -129,7 +132,7 @@ class UIMediator:
         opts = options_c.parse(form)
 
         try:
-            result = self.subject.peticion(repo_url, force=opts.get("force", False))
+            result = self.subject.peticion(repo_url, force=opts.get("force"), options=opts)
         except Exception as e:
             error_msg = f"Error durante el análisis: {str(e)}"
             ctx = {}

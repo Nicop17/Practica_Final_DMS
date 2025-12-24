@@ -1,0 +1,12 @@
+# Python - Archivos compilados
+__pycache__/
+*.pyc
+
+# Herramientas de Test y Cobertura
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Entornos virtuales
+venv/
+.venv/
