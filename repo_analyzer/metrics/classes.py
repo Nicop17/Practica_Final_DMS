@@ -24,8 +24,10 @@ class ClassesStrategy(MetricStrategy):
                 # Recorremos el cuerpo de la clase
                 for item in node.body:
                     # Si es función y no empieza por _, es público
-                    if isinstance(item, ast.FunctionDef) and not item.name.startswith("_"):
-                        public_methods += 1
+                    if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                        # Contamos solo los que no empiezan por "_" (públicos)
+                        if not item.name.startswith("_"):
+                            public_methods += 1
                 
                 results[node.name] = public_methods
         
