@@ -3,17 +3,10 @@ from typing import Dict, Any, Tuple, Optional
 import sys
 import os
 
-# Ajuste de path para importar config
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
 from config import ConfigSingleton
 
-# ==============================================================================
-# COMPONENTES DE INTERFAZ (UI COMPONENTS)
-# ==============================================================================
-
 class InputComponent:
-    """Responsable de validar y extraer la entrada principal."""
     def parse(self, form: Dict[str, Any]) -> Tuple[Optional[str], Optional[str]]:
         repo_url = form.get("repo_url", "").strip()
         if not repo_url:
@@ -23,13 +16,9 @@ class InputComponent:
     def context(self, error: Optional[str] = None) -> Dict[str, Any]:
         return {"input_error": error}
 
-
 class OptionsComponent:
-    """Responsable de procesar las opciones de configuración."""
     def parse(self, form: Dict[str, Any]) -> Dict[str, Any]:
         force = form.get("force") == "on"
-        
-        # Obtenemos default del Singleton
         try:
             default_window = ConfigSingleton.get_instance().duplication_window
         except Exception:
@@ -51,53 +40,36 @@ class OptionsComponent:
             default_window = ConfigSingleton.get_instance().duplication_window
         except Exception:
             default_window = 4
-
         defaults = {"force": False, "dup_window": default_window}
         return {"options": parsed_options or defaults}
 
-
 class OutputComponent:
-    """Responsable de formatear los resultados."""
     def prepare(self, result: Optional[Dict[str, Any]]) -> Dict[str, Any]:
         if not result:
             return {"show_output": False}
         
-        # --- CORRECCIÓN CRÍTICA AQUÍ ---
-        # Extraemos el diccionario 'summary' que viene de la Fachada
         summary = result.get("summary", {})
         
         return {
             "show_output": True,
             "repo": result.get("repo", ""),
             "analyzed_at": result.get("analyzed_at", ""),
-            "from_cache": result.get("_from_cache", False), # Nota: _from_cache viene de la DB/Proxy, no del summary
+            "from_cache": result.get("_from_cache", False),
             "forced": result.get("forced", False),
-            
-            # Aquí leemos del SUMMARY, no de la raíz
             "num_files": summary.get("num_files", 0),
             "total_lines": summary.get("total_lines", 0),
             "avg_cc": summary.get("avg_cc", 0.0),
             "maintainability": summary.get("maintainability_index", 0.0),
             "duplication": summary.get("duplication", 0.0),
-            
-            # Para debug visual
-            "summary_funcs": summary.get("summary_funcs", 0) 
         }
 
-
 class HistoryComponent:
-    """Responsable de recuperar el historial."""
     def get_entries(self, subject) -> Dict[str, Any]:
         try:
             entries = subject.list_analyses()
         except Exception:
             entries = []
         return {"history": entries}
-
-
-# ==============================================================================
-# MEDIADOR (UI MEDIATOR)
-# ==============================================================================
 
 class UIMediator:
     def __init__(self, subject):
@@ -135,11 +107,10 @@ class UIMediator:
         opts = options_c.parse(form)
 
         try:
-            # Llamada al Proxy/Subject
             result = self.subject.peticion(
                 repo_url, 
-                force=opts.get("force", False), 
-                options=opts  # <--- ESTO FALTABA
+                force=opts.get("force", False),
+                options=opts
             )
         except Exception as e:
             error_msg = f"Error durante el análisis: {str(e)}"
