@@ -3,11 +3,9 @@ from typing import Dict, Any, Tuple, Optional
 import sys
 import os
 
-# TRUCO DE IMPORTACIÓN: 
-# Como mediator.py está dentro de ui/, necesitamos que Python vea la raíz para importar config.py
+# Ajuste de path para importar config
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-# --- AQUÍ ESTABA EL ERROR: FALTABA ESTE IMPORT ---
 from config import ConfigSingleton
 
 # ==============================================================================
@@ -31,12 +29,11 @@ class OptionsComponent:
     def parse(self, form: Dict[str, Any]) -> Dict[str, Any]:
         force = form.get("force") == "on"
         
-        # --- USO DEL SINGLETON ---
-        # Obtenemos el valor por defecto de la configuración global
+        # Obtenemos default del Singleton
         try:
             default_window = ConfigSingleton.get_instance().duplication_window
         except Exception:
-            default_window = 4 # Fallback defensivo
+            default_window = 4
 
         try:
             val = form.get("dup_window")
@@ -50,7 +47,6 @@ class OptionsComponent:
         return {"force": force, "dup_window": dup_window}
 
     def context(self, parsed_options: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        # Usamos el singleton para mostrar el default en la UI
         try:
             default_window = ConfigSingleton.get_instance().duplication_window
         except Exception:
@@ -66,19 +62,26 @@ class OutputComponent:
         if not result:
             return {"show_output": False}
         
-        summary = result.get("summary", {})  # Buscamos dentro de 'summary' que es lo que devuelve nuestra Fachada 
-
+        # --- CORRECCIÓN CRÍTICA AQUÍ ---
+        # Extraemos el diccionario 'summary' que viene de la Fachada
+        summary = result.get("summary", {})
+        
         return {
             "show_output": True,
             "repo": result.get("repo", ""),
-            "num_files": result.get("num_files", 0),
-            "total_lines": result.get("total_lines", 0),
-            "avg_cc": result.get("avg_cc", 0.0),
-            "maintainability": result.get("maintainability_index", 0.0),
-            "duplication": result.get("duplication", 0.0),
-            "from_cache": result.get("_from_cache", False),
-            "forced": result.get("forced", False),
             "analyzed_at": result.get("analyzed_at", ""),
+            "from_cache": result.get("_from_cache", False), # Nota: _from_cache viene de la DB/Proxy, no del summary
+            "forced": result.get("forced", False),
+            
+            # Aquí leemos del SUMMARY, no de la raíz
+            "num_files": summary.get("num_files", 0),
+            "total_lines": summary.get("total_lines", 0),
+            "avg_cc": summary.get("avg_cc", 0.0),
+            "maintainability": summary.get("maintainability_index", 0.0),
+            "duplication": summary.get("duplication", 0.0),
+            
+            # Para debug visual
+            "summary_funcs": summary.get("summary_funcs", 0) 
         }
 
 
@@ -132,7 +135,12 @@ class UIMediator:
         opts = options_c.parse(form)
 
         try:
-            result = self.subject.peticion(repo_url, force=opts.get("force"), options=opts)
+            # Llamada al Proxy/Subject
+            result = self.subject.peticion(
+                repo_url, 
+                force=opts.get("force", False), 
+                options=opts  # <--- ESTO FALTABA
+            )
         except Exception as e:
             error_msg = f"Error durante el análisis: {str(e)}"
             ctx = {}
