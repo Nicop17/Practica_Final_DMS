@@ -3,16 +3,22 @@
 <head>
   <meta charset="utf-8">
   <title>Mediator Web (componentes)</title>
+  <style>
+      /* Un poco de estilo básico para que no se vea tan crudo */
+      body { font-family: sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; }
+      table { border-collapse: collapse; width: 100%; margin-top: 10px; }
+      th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+      th { background-color: #f2f2f2; }
+  </style>
 </head>
 <body>
   <h1>Analizador (Flask + Mediator)</h1>
 
-  <!-- Formulario: Input + Options -->
   <form method="post" action="/analyze">
     <label for="repo_url">Repo URL:</label>
-    <input id="repo_url" name="repo_url" size="60" placeholder="https://github.com/usuario/repo.git">
+    <input id="repo_url" name="repo_url" size="60" placeholder="https://github.com/usuario/repo.git" value="{{ repo or '' }}">
     <label style="margin-left:12px;">
-      <input type="checkbox" name="force"> Forzar recálculo
+      <input type="checkbox" name="force" {% if forced %}checked{% endif %}> Forzar recálculo
     </label>
     &nbsp;
     <label>Dup window:
@@ -26,14 +32,18 @@
 
   <hr>
 
-  <!-- Output Component (grid 2x2) -->
   {% if show_output %}
     <h2>Resultado</h2>
     <p>Repo: <strong>{{ repo }}</strong></p>
     <p>Forzado: {{ "Sí" if forced else "No" }} | Viene de cache: {{ "Sí" if from_cache else "No" }} | Analizado: {{ analyzed_at }}</p>
+    
     <table border="1" cellpadding="6">
-      <tr><td>num_files</td><td>{{ num_files }}</td></tr>
-      <tr><td>total_lines</td><td>{{ total_lines }}</td></tr>
+      <tr><th>Métrica</th><th>Valor</th></tr>
+      <tr><td>Num Files</td><td>{{ num_files }}</td></tr>
+      <tr><td>Total Lines (LOC)</td><td>{{ total_lines }}</td></tr>
+      <tr><td>Avg Complexity (CC)</td><td>{{ avg_cc }}</td></tr>
+      <tr><td>Maintainability Index</td><td>{{ maintainability }}</td></tr>
+      <tr><td>Duplication Ratio</td><td>{{ duplication }}</td></tr>
     </table>
   {% else %}
     <p>No hay resultado todavía.</p>
@@ -41,11 +51,13 @@
 
   <hr>
 
-  <!-- History Component -->
   <h3>Análisis previos</h3>
   <ul>
     {% for a in history %}
-      <li>[{{ a.analyzed_at }}] <strong>{{ a.repo_url }}</strong> — ficheros: {{ a.num_files }}</li>
+      <li>
+          [{{ a.analyzed_at }}] 
+          <strong>{{ a.repo }}</strong> — ficheros: {{ a.summary.num_files }}
+      </li>
     {% else %}
       <li>No hay análisis previos.</li>
     {% endfor %}
