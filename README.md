@@ -1,4 +1,4 @@
-# Practica_Final_DMS
+# Practica Final Diseño y Mantenmiento de Software
 
 # 📊 RepoAnalyzer - Analizador de Métricas de Software
 
@@ -53,31 +53,32 @@ Descarga este repositorio y abre una terminal en la carpeta raíz (`repo_analyze
 
 ### 2. Crear entorno virtual (Recomendado)
 Es buena práctica no ensuciar tu Python global.
-```bash
+
 # En Linux/Mac
-python3 -m venv venv
-source venv/bin/activate
+`python3 -m venv venv`
+`source venv/bin/activate`
 
 # En Windows
-python -m venv venv
-venv\Scripts\activate
+`python -m venv venv`
+`venv\Scripts\activate`
 
-3. Instalar dependencias
+### 3. Instalar dependencias
 
 El proyecto es ligero. Principalmente necesitamos Flask y Pytest.
 Bash
 
-pip install flask pytest
+`pip install flask pytest`
 
-4. Ejecutar la aplicación
+### 4. Ejecutar la aplicación
 
 Arranca el servidor de desarrollo:
 Bash
 
-python3 app.py
+`python3 app.py`
 
 Verás un mensaje indicando que el sistema está listo en http://127.0.0.1:5000.
-🖥️ Manual de Uso
+
+## 🖥️ Manual de Uso
 
     Abre tu navegador web y ve a http://127.0.0.1:5000.
 
@@ -95,17 +96,16 @@ Verás un mensaje indicando que el sistema está listo en http://127.0.0.1:5000.
 
     Nota: La primera vez que analices un repo grande puede tardar unos segundos o minutos dependiendo de tu conexión a internet, ya que tiene que clonarlo.
 
-🧪 Ejecutar los Tests
+## 🧪 Ejecutar los Tests
 
 El proyecto cuenta con una suite de tests robusta (Unitarios y de Integración) para asegurar que las métricas y la arquitectura funcionan bien.
 
 Para lanzarlos, simplemente ejecuta desde la raíz:
-Bash
 
-pytest -v
+`pytest -v`
 
 Deberías ver todos los tests en verde (PASSED), cubriendo desde las estrategias de cálculo (test_functions.py, etc.) hasta la coordinación del mediador (test_mediator.py).
-⚠️ Solución de Problemas Comunes
+## ⚠️ Solución de Problemas Comunes
 
     "Num Files: 0": Asegúrate de que el repositorio que estás analizando es de Python. El sistema filtra automáticamente y solo analiza archivos .py.
 
@@ -113,7 +113,7 @@ Deberías ver todos los tests en verde (PASSED), cubriendo desde las estrategias
 
     Error "Git not found": Asegúrate de tener Git instalado y añadido al PATH de tu sistema.
 
-✒️ Autores
+## ✒️ Autores
 
     Igor & Nicolás
 
