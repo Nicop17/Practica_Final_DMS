@@ -115,6 +115,6 @@ Deberías ver todos los tests en verde (PASSED), cubriendo desde las estrategias
 
 ## ✒️ Autores
 
-    Igor & Nicolás
+    Igor Arroyo Ortega & Nicolás Pérez Ibáñez
 
     Practica Final Diseño y Mantenimiento de Software - Curso 2024/2025
