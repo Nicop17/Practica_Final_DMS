@@ -9,7 +9,7 @@ from repo.db_manager import DBManager
 from metrics.facade import MetricsFacade
 
 # Interfaz que implementa este Proxy
-from .interface import SubjectInterface
+from .subject_interface import SubjectInterface
 
 class ProxySubject(SubjectInterface):
     """
@@ -28,62 +28,64 @@ class ProxySubject(SubjectInterface):
         self.facade = MetricsFacade()
 
     def peticion(self, repo_url: str, force: bool = False, options: Dict[str, Any] = None) -> Dict[str, Any]:
-        """
-        Gestiona la petición de análisis de un repositorio.
-        Decide si leer de la BD o calcular de cero.
-        """
-        if options is None:
-            options = {}
+            """
+            Gestiona la petición de análisis de un repositorio.
+            """
+            if options is None:
+                options = {}
 
-        try:
-            # 1. CONSULTA DE CACHÉ
-            # Si no se fuerza el análisis, intentamos recuperar de la BD
-            if not force:
-                cached_result = self.db.get_latest_analysis(repo_url)
-                if cached_result:
-                    print(f"[Proxy] HIT: Análisis recuperado de caché para {repo_url}")
-                    return cached_result
+            try:
+                # 1. CONSULTA DE CACHÉ
+                if not force:
+                    cached_result = self.db.get_latest_analysis(repo_url)
+                    if cached_result:
+                        print(f"[Proxy] HIT: Análisis recuperado de caché para {repo_url}")
+                        
+                        # --- CORRECCIÓN 1: Marcar que viene de caché ---
+                        cached_result["_from_cache"] = True
+                        cached_result["forced"] = False
+                        
+                        return cached_result
 
-            # 2. Calcular de cero (Si no está en la BD o force=True)
-            print(f"[Proxy] MISS (o force): Iniciando análisis completo para {repo_url}")
-            
-            # Aseguramos que el repositorio esté descargado
-            local_path = self.repo_manager.ensure_repo(repo_url)
-
-            # Si force=True, borramos lo que hubiera y volvemos a descargar 
-            # para garantizar que analizamos la versión más reciente del código
-            if force:
-                print("[Proxy] Limpiando copia local...")
-                self.repo_manager.remove_repo(local_path)
+                # 2. CÁLCULO REAL (MISS o FORCE)
+                print(f"[Proxy] MISS (o force): Iniciando análisis completo para {repo_url}")
+                
                 local_path = self.repo_manager.ensure_repo(repo_url)
 
-            # Delegamos en la fachada el cálculo de las métricas
-            print("[Proxy] Calculando métricas...")
-            results = self.facade.compute_all(local_path, options)
+                if force:
+                    print("[Proxy] Limpiando copia local...")
+                    self.repo_manager.remove_repo(local_path)
+                    local_path = self.repo_manager.ensure_repo(repo_url)
 
-            # Añadimos URL y fecha si faltan
-            results["repo"] = repo_url
-            if "analyzed_at" not in results:
-                results["analyzed_at"] = datetime.now().isoformat()
+                print("[Proxy] Calculando métricas...")
+                results = self.facade.compute_all(local_path, options)
 
-            # D. Guardaamos el resultado en la BD (para futuros usos)
-            self.db.save_analysis(results)
-            
-            return results
+                # Completar metadatos
+                results["repo"] = repo_url
+                if "analyzed_at" not in results or not results["analyzed_at"]:
+                    results["analyzed_at"] = datetime.now().isoformat()
 
-        except Exception as e:
-            # Si algo falla (git, red, código), capturo el error            
-            error_msg = f"Error procesando {repo_url}: {str(e)}"
-            print(f"[Proxy Error] {error_msg}")
-            
-            # Devuelvemos un diccionario con el error para mostrarlo en la web
-            return {
-                "repo": repo_url,
-                "analyzed_at": datetime.now().isoformat(),
-                "error": error_msg,
-                "summary": {"num_files": 0, "total_lines": 0}
-            }
+                # Guardar en BD (sin las marcas efímeras _from_cache/forced, para mantener la BD limpia)
+                self.db.save_analysis(results)
+                
+                # --- CORRECCIÓN 2: Marcar el estado actual para la UI ---
+                results["_from_cache"] = False
+                results["forced"] = force  # Reflejamos si el usuario pidió forzar
+                
+                return results
 
+            except Exception as e:
+                # ... (Manejo de errores igual que antes) ...
+                error_msg = f"Error procesando {repo_url}: {str(e)}"
+                print(f"[Proxy Error] {error_msg}")
+                return {
+                    "repo": repo_url,
+                    "analyzed_at": datetime.now().isoformat(),
+                    "error": error_msg,
+                    "summary": {"num_files": 0, "total_lines": 0},
+                    "_from_cache": False,
+                    "forced": force
+                }
     def list_analyses(self) -> List[Dict[str, Any]]:
         """
         Devuelve el historial de análisis consultando directamente al DBManager.
