@@ -1,0 +1,54 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Mediator Web (componentes)</title>
+</head>
+<body>
+  <h1>Analizador (Flask + Mediator)</h1>
+
+  <!-- Formulario: Input + Options -->
+  <form method="post" action="/analyze">
+    <label for="repo_url">Repo URL:</label>
+    <input id="repo_url" name="repo_url" size="60" placeholder="https://github.com/usuario/repo.git">
+    <label style="margin-left:12px;">
+      <input type="checkbox" name="force"> Forzar recálculo
+    </label>
+    &nbsp;
+    <label>Dup window:
+      <input name="dup_window" size="3" value="{{ options.dup_window if options else 4 }}">
+    </label>
+    <button type="submit">Analizar</button>
+    {% if input_error %}
+      <p style="color:red">{{ input_error }}</p>
+    {% endif %}
+  </form>
+
+  <hr>
+
+  <!-- Output Component (grid 2x2) -->
+  {% if show_output %}
+    <h2>Resultado</h2>
+    <p>Repo: <strong>{{ repo }}</strong></p>
+    <p>Forzado: {{ "Sí" if forced else "No" }} | Viene de cache: {{ "Sí" if from_cache else "No" }} | Analizado: {{ analyzed_at }}</p>
+    <table border="1" cellpadding="6">
+      <tr><td>num_files</td><td>{{ num_files }}</td></tr>
+      <tr><td>total_lines</td><td>{{ total_lines }}</td></tr>
+    </table>
+  {% else %}
+    <p>No hay resultado todavía.</p>
+  {% endif %}
+
+  <hr>
+
+  <!-- History Component -->
+  <h3>Análisis previos</h3>
+  <ul>
+    {% for a in history %}
+      <li>[{{ a.analyzed_at }}] <strong>{{ a.repo_url }}</strong> — ficheros: {{ a.num_files }}</li>
+    {% else %}
+      <li>No hay análisis previos.</li>
+    {% endfor %}
+  </ul>
+</body>
+</html>
