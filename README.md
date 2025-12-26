@@ -117,4 +117,4 @@ Deberías ver todos los tests en verde (PASSED), cubriendo desde las estrategias
 
     Igor Arroyo Ortega & Nicolás Pérez Ibáñez
 
-    Practica Final Diseño y Mantenimiento de Software - Curso 2024/2025
+    Practica Final Diseño y Mantenimiento de Software - Curso 2025/2026
