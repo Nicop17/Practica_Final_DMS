@@ -100,7 +100,7 @@ class MetricsFacade:
                     "path": str(filepath.relative_to(repo_path)),
                     "total_lines": n_lines, "num_imports": n_imports, "todos": n_todos,
                     "duplication_ratio": dup_ratio, "maintainability_index": mi_score,
-                    "avg_cc": file_avg_cc, "functions": func_metrics, "classes": class_metrics
+                    "avg_cc": file_avg_cc, "functions": func_metrics, "public_methods": class_metrics
                 }
                 
                 results["files"].append(file_data)
