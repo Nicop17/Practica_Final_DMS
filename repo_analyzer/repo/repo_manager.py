@@ -45,25 +45,14 @@ class RepoManager:
 
     def remove_repo(self, repo_path: Path) -> None:
         """
-        Borra el directorio del repositorio local de forma robusta en Windows.
+        Borra el directorio del repositorio local (usado para forzar recálculo).
         """
-        if repo_path.exists() and repo_path.is_dir():
-            print(f"[RepoManager] Eliminando: {repo_path}")
-            
-            # Función auxiliar para manejar archivos de solo lectura (común en .git)
-            def remove_readonly(func, path, excinfo):
-                os.chmod(path, stat.S_IWRITE)
-                func(path)
-
-            try:
-                # Usamos onerror para forzar el borrado de archivos de solo lectura
-                shutil.rmtree(repo_path, onerror=remove_readonly)
-                print("[RepoManager] Eliminación completada.")
-            except Exception as e:
-                print(f"[RepoManager] Error crítico al borrar: {e}")
+        if repo_path.is_dir():
+            print(f"Eliminando repositorio local en: {repo_path}")
+            shutil.rmtree(repo_path)  # Elimina directorios con contenido
         else:
-            print(f"[RepoManager] Nada que borrar en: {repo_path}")
-            
+            print(f"Advertencia: El directorio {repo_path} no existe o no es un directorio.")
+
     def ensure_repo(self, repo_url: str) -> Path:
         """
         Asegura que el repositorio indicado esté disponible localmente y lo clona si no existe.
