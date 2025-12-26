@@ -74,7 +74,7 @@ Bash
 Arranca el servidor de desarrollo:
 Bash
 
-`python3 app.py`
+`python app.py`
 
 Verás un mensaje indicando que el sistema está listo en http://127.0.0.1:5000.
 
@@ -85,26 +85,18 @@ Verás un mensaje indicando que el sistema está listo en http://127.0.0.1:5000.
     Repo URL: Introduce la URL de un repositorio público y de Python.
 
         Ejemplo para probar: https://github.com/kennethreitz/samplemod
+        Otro ejemplo: https://github.com/psf/requests
 
     Opciones:
 
         Forzar recálculo: Si lo marcas, borrará la caché de ese repo, lo volverá a descargar y calculará todo de cero. Si no lo marcas y ya existe en la BD, te mostrará el resultado guardado al instante.
 
-        Dup Window: Tamaño de la ventana para detectar código duplicado (por defecto es 4 líneas).
+        Dup Window: Tamaño de la ventana para detectar código duplicado (por defecto es 5 líneas).
 
     Pulsa "Analizar".
 
     Nota: La primera vez que analices un repo grande puede tardar unos segundos o minutos dependiendo de tu conexión a internet, ya que tiene que clonarlo.
 
-## 🧪 Ejecutar los Tests
-
-El proyecto cuenta con una suite de tests robusta (Unitarios y de Integración) para asegurar que las métricas y la arquitectura funcionan bien.
-
-Para lanzarlos, simplemente ejecuta desde la raíz:
-
-`pytest -v`
-
-Deberías ver todos los tests en verde (PASSED), cubriendo desde las estrategias de cálculo (test_functions.py, etc.) hasta la coordinación del mediador (test_mediator.py).
 ## ⚠️ Solución de Problemas Comunes
 
     "Num Files: 0": Asegúrate de que el repositorio que estás analizando es de Python. El sistema filtra automáticamente y solo analiza archivos .py.
@@ -117,4 +109,4 @@ Deberías ver todos los tests en verde (PASSED), cubriendo desde las estrategias
 
     Igor Arroyo Ortega & Nicolás Pérez Ibáñez
 
-    Practica Final Diseño y Mantenimiento de Software - Curso 2025/2026
+    Práctica Final Diseño y Mantenimiento de Software - Curso 2025/2026
