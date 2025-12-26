@@ -2,12 +2,15 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Mediator Web (componentes)</title>
+  <title>Analizador de Repositorios - Resultados Detallados</title>
   <style>
-      body { font-family: sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; }
-      table { border-collapse: collapse; width: 100%; margin-top: 10px; }
-      th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-      th { background-color: #f2f2f2; }
+      body { font-family: sans-serif; max-width: 900px; margin: 2rem auto; padding: 0 1rem; line-height: 1.5; }
+      table { border-collapse: collapse; width: 100%; margin: 15px 0; font-size: 0.9rem; }
+      th, td { border: 1px solid #ddd; padding: 10px; text-align: left; vertical-align: top; }
+      th { background-color: #f8f9fa; color: #333; }
+      tr:nth-child(even) { background-color: #fcfcfc; }
+      .func-list { margin: 0; padding-left: 20px; list-style-type: square; }
+      .badge { background: #eee; padding: 2px 5px; border-radius: 3px; font-size: 0.8rem; }
   </style>
 </head>
 <body>
@@ -32,25 +35,65 @@
   <hr>
 
   {% if show_output %}
-    <h2>Resultado</h2>
+    <h2>Resultado Global</h2>
     <p>Repo: <strong>{{ repo }}</strong></p>
     <p>Forzado: {{ "Sí" if forced else "No" }} | Viene de cache: {{ "Sí" if from_cache else "No" }} | Analizado: {{ analyzed_at }}</p>
     
-    <table border="1" cellpadding="6">
-      <tr><th>Métrica</th><th>Valor</th></tr>
+    <table>
+      <tr><th>Métrica Resumen</th><th>Valor</th></tr>
       <tr><td>Num Files</td><td>{{ num_files }}</td></tr>
       <tr><td>Total Lines (LOC)</td><td>{{ total_lines }}</td></tr>
       <tr><td>Avg Complexity (CC)</td><td>{{ avg_cc }}</td></tr>
       <tr><td>Maintainability Index</td><td>{{ maintainability }}</td></tr>
       <tr><td>Duplication Ratio</td><td>{{ duplication }}</td></tr>
     </table>
-  {% else %}
-    <p>No hay resultado todavía.</p>
+
+    <h2>Detalle por Fichero y Función</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Ruta del Fichero</th>
+          <th>Métricas Fichero</th>
+          <th>Análisis de Funciones (LOC, Params, CC, Nesting)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for file in files_list %}
+        <tr>
+          <td><strong>{{ file.path }}</strong></td>
+          <td>
+            LOC: {{ file.total_lines }}<br>
+            Imports: {{ file.num_imports }}<br>
+            TODOs: {{ file.todos }}
+          </td>
+          <td>
+            {% if file.functions %}
+              <ul class="func-list">
+                {% for func_name, f_data in file.functions.items() %}
+                <li>
+                  <strong>{{ func_name }}</strong>: 
+                  <span class="badge">LOC: {{ f_data.loc }}</span>
+                  <span class="badge">Params: {{ f_data.params }}</span>
+                  <span class="badge">CC: {{ f_data.cc }}</span>
+                  <span class="badge">Nest: {{ f_data.max_nesting }}</span>
+                </li>
+                {% endfor %}
+              </ul>
+            {% else %}
+              <em>Sin funciones detectadas</em>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p>No hay resultado todavía. Introduzca una URL para comenzar.</p>
   {% endif %}
 
   <hr>
 
-  <h3>Análisis previos</h3>
+  <h3>Historial de Análisis</h3>
   <ul>
     {% for a in history %}
       <li>

@@ -61,6 +61,7 @@ class OutputComponent:
             "avg_cc": summary.get("avg_cc", 0.0),
             "maintainability": summary.get("maintainability_index", 0.0),
             "duplication": summary.get("duplication", 0.0),
+            "files_list": result.get("files", [])
         }
 
 class HistoryComponent:
