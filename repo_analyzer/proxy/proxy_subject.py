@@ -31,50 +31,47 @@ class ProxySubject(SubjectInterface):
             options = {}
 
         try:
-            # 1. CONSULTA DE CACHÉ
-            if not force:
+            # 1. GESTIÓN DE RUTA LOCAL
+            # Calculamos la ruta de destino antes de operar
+            repo_name = repo_url.split("/")[-1].replace(".git", "")
+            local_path = self.cache_dir / repo_name
+
+            # 2. LÓGICA DE FORZADO (Limpieza previa)
+            if force:
+                print(f"[Proxy] Modo force: Eliminando rastro local de {repo_url}")
+                self.repo_manager.remove_repo(local_path)
+                # Al no retornar aquí, obligamos al flujo a continuar al análisis
+            
+            # 3. CONSULTA DE CACHÉ (Solo si no es force)
+            elif not force:
                 cached_result = self.db.get_latest_analysis(repo_url)
                 if cached_result:
-                    print(f"[Proxy] HIT: Análisis recuperado de caché para {repo_url}")
-                    
-                    # Marcar que viene de caché
+                    print(f"[Proxy] HIT: Recuperado de base de datos")
                     cached_result["_from_cache"] = True
                     cached_result["forced"] = False
                     return cached_result
 
-            # 2. CÁLCULO REAL (MISS o FORCE)
-            print(f"[Proxy] MISS (o force): Iniciando análisis completo para {repo_url}")
+            # 4. ANÁLISIS REAL (Descarga y Cálculo)
+            print(f"[Proxy] Iniciando análisis: {repo_url}")
+            # ensure_repo ahora clonará siempre si force borró la carpeta antes
+            actual_path = self.repo_manager.ensure_repo(repo_url)
             
-            local_path = self.repo_manager.ensure_repo(repo_url)
+            results = self.facade.compute_all(actual_path, options)
 
-            if force:
-                print("[Proxy] Limpiando copia local...")
-                self.repo_manager.remove_repo(local_path)
-                local_path = self.repo_manager.ensure_repo(repo_url)
-
-            print("[Proxy] Calculando métricas...")
-            results = self.facade.compute_all(local_path, options)
-
-            # Completar metadatos
+            # 5. METADATOS Y PERSISTENCIA
             results["repo"] = repo_url
-            if "analyzed_at" not in results or not results["analyzed_at"]:
-                results["analyzed_at"] = datetime.now().isoformat()
-
-            # Guardar en BD
-            self.db.save_analysis(results)
-            
-            # Marcar el estado actual para la UI
+            results["analyzed_at"] = datetime.now().isoformat()
             results["_from_cache"] = False
             results["forced"] = force
-            
+
+            self.db.save_analysis(results)
             return results
 
         except Exception as e:
+            # Tu gestión de excepciones actual es correcta y necesaria según el enunciado
             error_msg = f"Error procesando {repo_url}: {str(e)}"
-            print(f"[Proxy Error] {error_msg}")
             return {
                 "repo": repo_url,
-                "analyzed_at": datetime.now().isoformat(),
                 "error": error_msg,
                 "summary": {"num_files": 0, "total_lines": 0},
                 "_from_cache": False,

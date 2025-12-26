@@ -61,7 +61,16 @@ class OutputComponent:
             "avg_cc": summary.get("avg_cc", 0.0),
             "maintainability": summary.get("maintainability_index", 0.0),
             "duplication": summary.get("duplication", 0.0),
-            "files_list": result.get("files", [])
+            "files_list": [
+                {
+                    "path": f["path"],
+                    "total_lines": f["total_lines"],
+                    "num_imports": f["num_imports"],
+                    "todos": f["todos"],
+                    "public_methods": f.get("public_methods", 0), # <--- AÑADIR ESTO
+                    "functions": f["functions"]
+                } for f in result.get("files", [])
+            ]
         }
 
 class HistoryComponent:

@@ -65,6 +65,7 @@
             LOC: {{ file.total_lines }}<br>
             Imports: {{ file.num_imports }}<br>
             TODOs: {{ file.todos }}
+            <strong>Métodos Públicos: {{ file.public_methods }}</strong> </td>
           </td>
           <td>
             {% if file.functions %}
